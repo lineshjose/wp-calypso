@@ -129,6 +129,25 @@ const processFile = ( filePath ) => {
 };
 
 /**
+ * Filter out any components that don't have an example component, and keep the example components
+ * @param {Array} docObjArray The array of docs to filter
+ * @return {Array} The filtered array
+ */
+const onlyWithExample = ( docObjArray ) => {
+	const goodComponents = docObjArray
+		// get all components that are example components
+		.filter( ( obj ) => obj.includePath.endsWith( '/example' ) )
+		// get their parent component folder '/author-selector/docs/example' to 'author-selector'
+		.map( ( obj ) => obj.includePath.split( '/' ).splice( -3 )[ 0 ] );
+
+	return docObjArray.filter( ( docObj ) => {
+		const directory = path.basename( docObj.includePath );
+		// this may lead to some false positives, but I think the speed is worth it ;)
+		return goodComponents.includes( directory ) || docObj.includePath.endsWith( '/example' );
+	} );
+};
+
+/**
  * Given a processed file object, parses the file for proptypes and calls the callback
  * Calls back with null on any error, or a parsed object if it succeeds
  * @param {Object} docObj The processed document object
@@ -154,10 +173,10 @@ const parseDocument = ( docObj ) => {
 
 /**
  * Creates an index of the files
- * @param {Array} parsed
- * @return {{data: Array, index: {displayName: {}, slug: {}, includePath: {}}}}
+ * @param {Array} parsed The parsed documentation array
+ * @return {Array} Removes any components without a displayName
  */
-const createIndex = ( parsed ) => {
+const cleanIndex = ( parsed ) => {
 	return parsed.filter( ( component ) => {
 		if ( ! component ) {
 			return false;
@@ -191,11 +210,10 @@ const main = ( () => {
 		process.exit( 1 );
 	}
 
-	const documents = createIndex(
-		fileList
-			.map( processFile )
-			.map( parseDocument )
-	);
+	let documents = fileList.map( processFile );
+	documents = onlyWithExample( documents );
+	documents = documents.map( parseDocument );
+	documents = cleanIndex( documents );
 	writeFile( documents );
 
 	const elapsed = process.hrtime( startTime )[ 1 ] / 1000000;
