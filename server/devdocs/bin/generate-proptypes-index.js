@@ -200,7 +200,7 @@ const writeFile = ( contents ) => {
 };
 
 ( () => {
-	console.log( 'Building: proptypes-index.json' );
+	console.log( 'Generating component documentation' );
 	const fileList = process
 		.argv
 		.splice( 2, process.argv.length )
