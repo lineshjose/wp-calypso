@@ -17,12 +17,13 @@ const { getPropertyName, getMemberValuePath, resolveToValue } = require( 'react-
 const util = require( 'client/devdocs/docs-example/util' );
 
 const root = path.dirname( path.join( __dirname, '..', '..' ) );
-const pathSwap = new RegExp(path.sep, 'g');
+const pathSwap = new RegExp( path.sep, 'g' );
 const handlers = [ ...reactDocgen.defaultHandlers, commentHandler ];
 
 /**
  * Replaces **'s in comment blocks and trims comments
  * @param {string} str The doc string to clean
+ * @return {string} The clean comment block text
  */
 function parseDocblock( str ) {
 	const lines = str.split( '\n' );
@@ -34,19 +35,20 @@ function parseDocblock( str ) {
 
 /**
  * Given a path, this function returns the closest preceding comment, if it exists
- * @param {NodePath} path The node path from react-docgen
+ * @param {NodePath} nodePath The node path from react-docgen
+ * @return {null|string} The comment or nothing, if no comment
  */
-function getComments( path ) {
+function getComments( nodePath ) {
 	let comments = [];
 
-	if ( path.node.leadingComments ) {
+	if ( nodePath.node.leadingComments ) {
 		// if there are comments before this property node, use the ones leading, not following a previous node
-		comments = path.node.leadingComments.filter(
+		comments = nodePath.node.leadingComments.filter(
 			comment => comment.leading === true
 		);
-	} else if (path.node.comments) {
+	} else if ( nodePath.node.comments ) {
 		// if there are comments after this property node, use the ones following this node
-		comments = path.node.comments.filter(
+		comments = nodePath.node.comments.filter(
 			comment => comment.leading === false
 		);
 	}
@@ -61,18 +63,18 @@ function getComments( path ) {
 /**
  * Handler for react-docgen to use in order to discover
  * @param {Documentation} documentation The object to mutate that will eventually be passed back to us from parse()
- * @param {NodePath} path The node we are handling
+ * @param {NodePath} nodePath The node we are handling
  */
-function commentHandler(documentation, path) {
+function commentHandler( documentation, nodePath ) {
 	// retrieve the proptypes for this node, if they exist
-	let propTypesPath = getMemberValuePath(path, 'propTypes');
-	if (!propTypesPath) {
+	let propTypesPath = getMemberValuePath( nodePath, 'propTypes' );
+	if ( ! propTypesPath ) {
 		return;
 	}
 
 	// resolve a path to a value, if possible, will be ObjectExpression type if it can
 	propTypesPath = resolveToValue( propTypesPath );
-	if ( !propTypesPath || propTypesPath.value.type !== 'ObjectExpression' ) {
+	if ( ! propTypesPath || propTypesPath.value.type !== 'ObjectExpression' ) {
 		return;
 	}
 
@@ -84,8 +86,8 @@ function commentHandler(documentation, path) {
 		}
 
 		// get the prop name and description, ensuring that it either doesn't exist or is empty before continuing
-		const propName = getPropertyName(propertyPath);
-		const propDescriptor = documentation.getPropDescriptor(propName);
+		const propName = getPropertyName( propertyPath );
+		const propDescriptor = documentation.getPropDescriptor( propName );
 
 		if ( propDescriptor.description && propDescriptor.description !== '' ) {
 			return;
@@ -109,12 +111,13 @@ const readFile = ( filePath ) => {
  * Calculates a filepath's include path and begins reading the file for parsing
  * Calls back with null, if an error occurs or an object if it succeeds
  * @param {string} filePath The path to read
+ * @return {null|{ document: {object}, includePath: {string} }} The docObj, if it could be created, null if not
  */
 const processFile = ( filePath ) => {
 	const filename = path.basename( filePath );
-	const includePathRegEx = new RegExp(`^client${ path.sep }(.*?)${ path.sep }${ filename }$`);
+	const includePathRegEx = new RegExp( `^client${ path.sep }(.*?)${ path.sep }${ filename }$` );
 	const includePathSuffix = ( filename === 'index.jsx' ? '' : path.sep + path.basename( filename, '.jsx' ) );
-	const includePath = ( includePathRegEx.exec( filePath )[1] + includePathSuffix ).replace( pathSwap, '/' ) ;
+	const includePath = ( includePathRegEx.exec( filePath )[ 1 ] + includePathSuffix ).replace( pathSwap, '/' );
 	try {
 		const usePath = path.isAbsolute( filePath ) ? filePath : path.join( process.cwd(), filePath );
 		const document = readFile( usePath );
@@ -123,7 +126,7 @@ const processFile = ( filePath ) => {
 			includePath
 		};
 	} catch ( error ) {
-		console.log(`Skipping ${ filePath } due to fs error: ${ error }`);
+		console.log( `Skipping ${ filePath } due to fs error: ${ error }` );
 	}
 	return null;
 };
@@ -151,6 +154,7 @@ const onlyWithExample = ( docObjArray ) => {
  * Given a processed file object, parses the file for proptypes and calls the callback
  * Calls back with null on any error, or a parsed object if it succeeds
  * @param {Object} docObj The processed document object
+ * @return {null | object} The parsed documentation object
  */
 const parseDocument = ( docObj ) => {
 	try {
@@ -158,8 +162,7 @@ const parseDocument = ( docObj ) => {
 		parsed.includePath = docObj.includePath;
 		if ( parsed.displayName ) {
 			parsed.slug = util.camelCaseToSlug( parsed.displayName );
-		}
-		else {
+		} else {
 			// we have to figure it out -- use the directory name to get the slug
 			parsed.slug = path.basename( docObj.includePath );
 			parsed.displayName = util.slugToCamelCase( parsed.slug );
@@ -196,7 +199,7 @@ const writeFile = ( contents ) => {
 	fs.writeFileSync( path.join( root, 'server/devdocs/proptypes-index.json' ), JSON.stringify( contents ) );
 };
 
-const main = ( () => {
+( () => {
 	console.log( 'Building: proptypes-index.json' );
 	const fileList = process
 		.argv
@@ -206,8 +209,7 @@ const main = ( () => {
 		} );
 
 	if ( fileList.length === 0 ) {
-		process.stderr.write( 'You must pass a list of files to process' );
-		process.exit( 1 );
+		throw new Error( 'You must pass a list of files to process' );
 	}
 
 	let documents = fileList.map( processFile );
@@ -217,5 +219,5 @@ const main = ( () => {
 	writeFile( documents );
 
 	const elapsed = process.hrtime( startTime )[ 1 ] / 1000000;
-	console.log( `Time: ${ process.hrtime( startTime )[0] }s ${ elapsed.toFixed( 3 ) }ms` );
+	console.log( `Time: ${ process.hrtime( startTime )[ 0 ] }s ${ elapsed.toFixed( 3 ) }ms` );
 } )();
