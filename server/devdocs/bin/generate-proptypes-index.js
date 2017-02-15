@@ -52,6 +52,27 @@ const main = () => {
 	console.log( `Time: ${ process.hrtime( startTime )[ 0 ] }s ${ elapsed.toFixed( 3 ) }ms` );
 };
 
+/* File handling */
+
+/**
+ * Wraps fs.readFile in a Promise
+ * @param {string} filePath The path to of the file to read
+ * @return {string} The file contents
+ */
+function readFile( filePath ) {
+	return fs.readFileSync( filePath, { encoding: 'utf8' } );
+}
+
+/**
+ * Write the file
+ * @param {Object} contents The contents of the file
+ */
+function writeFile( contents ) {
+	fs.writeFileSync( path.join( root, 'server/devdocs/proptypes-index.json' ), JSON.stringify( contents ) );
+}
+
+/* Handlers for reactDocgen */
+
 /**
  * Replaces **'s in comment blocks and trims comments
  * @param {string} str The doc string to clean
@@ -128,14 +149,7 @@ function commentHandler( documentation, nodePath ) {
 	} );
 }
 
-/**
- * Wraps fs.readFile in a Promise
- * @param {string} filePath The path to of the file to read
- * @return {string} The file contents
- */
-function readFile( filePath ) {
-	return fs.readFileSync( filePath, { encoding: 'utf8' } );
-}
+/* Component processing */
 
 /**
  * Calculates a filepath's include path and begins reading the file for parsing
@@ -223,14 +237,6 @@ function hasDisplayName( component ) {
 	return ! (
 		displayName === undefined || displayName === ''
 	);
-}
-
-/**
- * Write the file
- * @param {Object} contents The contents of the file
- */
-function writeFile( contents ) {
-	fs.writeFileSync( path.join( root, 'server/devdocs/proptypes-index.json' ), JSON.stringify( contents ) );
 }
 
 main();
